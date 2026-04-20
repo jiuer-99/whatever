@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>🍜 今天中午吃什么？</title>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    padding: 20px 16px;
+    color: #333;
+  }
+
+  .container { max-width: 420px; margin: 0 auto; }
+
+  /* 头部 */
+  .header {
+    text-align: center;
+    padding: 30px 20px 24px;
+    background: rgba(255,255,255,0.95);
+    border-radius: 20px 20px 16px 16px;
+    margin-bottom: 2px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  }
+  
+  .header .emoji-big {
+    font-size: 56px;
+    margin-bottom: 8px;
+    animation: bounce 2s ease infinite;
+  }
+  
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  
+  .header h1 {
+    font-size: 22px;
+    color: #333;
+    margin-bottom: 6px;
+    font-weight: 700;
+  }
+  
+  .header .subtitle { font-size: 13px; color: #888; }
+
+  /* 统计栏 */
+  .stats-bar {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 14px 20px;
+    background: rgba(255,255,255,0.95);
+    font-size: 13px;
+  }
+  
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #666;
+  }
+  
+  .stat-item .num {
+    font-weight: 700;
+    color: #667eea;
+    font-size: 18px;
+  }
+
+  /* 在线人数指示器 */
+  .online-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 8px 0 0;
+    font-size: 12px;
+    color: rgba(102,126,234,0.8);
+    background: rgba(255,255,255,0.95);
+  }
+
+  .online-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #32C14F;
+    animation: pulse-dot 1.5s ease infinite;
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
+  }
+
+  /* 投票区域 */
+  .vote-section {
+    background: rgba(255,255,255,0.95);
+    border-radius: 16px 16px 20px 20px;
+    padding: 20px 18px 24px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  }
+
+  .section-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #555;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  /* 选项列表 */
+  .options-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .option-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 14px 16px;
+    background: #f8f9fc;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    border: 2px solid transparent;
+    overflow: hidden;
+  }
+
+  .option-item:active { transform: scale(0.98); }
+
+  .option-item.selected {
+    border-color: #667eea;
+    background: linear-gradient(135deg, #f0f3ff 0%, #e8ecff 100%);
+  }
+
+  .option-item.selected .radio-circle {
+    border-color: #667eea;
+    background: #667eea;
+  }
+
+  .option-item.selected .radio-circle::after {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .option-item.winner {
+    border-color: #f5a623;
+    background: linear-gradient(135deg, #fff9f0 0%, #fff4e0 100%);
+  }
+
+  .option-item.winner .winner-badge { display: flex; }
+
+  /* 单选按钮 */
+  .radio-circle {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #ccc;
+    margin-right: 12px;
+    flex-shrink: 0;
+    position: relative;
+    transition: all 0.2s ease;
+  }
+
+  .radio-circle::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: white;
+    opacity: 0;
+    transition: all 0.2s ease;
+  }
+
+  .option-info { flex: 1; min-width: 0; }
+
+  .option-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+  }
+
+  .option-name .emoji { margin-right: 5px; font-size: 17px; }
+
+  /* 进度条 */
+  .progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .progress-bar {
+    flex: 1;
+    height: 8px;
+    background: #eee;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    transition: width 0.5s ease;
+    width: 0%;
+  }
+
+  .option-item.winner .progress-fill {
+    background: linear-gradient(90deg, #f5a623, #f7b733);
+  }
+
+  .vote-count {
+    font-size: 13px;
+    font-weight: 700;
+    color: #667eea;
+    min-width: 28px;
+    text-align: right;
+  }
+
+  .option-item.winner .vote-count { color: #f5a623; }
+
+  .vote-label { font-size: 11px; color: #aaa; min-width: 22px; }
+
+  /* 冠军标签 */
+  .winner-badge {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #f5a623, #f7b733);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+
+  /* 投票按钮 */
+  .vote-btn {
+    width: 100%;
+    padding: 16px;
+    margin-top: 16px;
+    border: none;
+    border-radius: 14px;
+    font-size: 17px;
+    font-weight: 700;
+    color: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    letter-spacing: 2px;
+  }
+
+  .vote-btn:active {
+    transform: scale(0.97);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  }
+
+  .vote-btn:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
+
+  .vote-btn.voted {
+    background: linear-gradient(135deg, #32C14F 0%, #28a745 100%);
+    box-shadow: 0 4px 15px rgba(50, 193, 79, 0.4);
+  }
+
+  /* 已投票提示 */
+  .voted-info {
+    text-align: center;
+    padding: 16px;
+    margin-top: 12px;
+    background: linear-gradient(135deg, #e8fdf0 0%, #d4f5e0 100%);
+    border-radius: 12px;
+    font-size: 14px;
+    color: #28a745;
+    font-weight: 500;
+    display: none;
+  }
+
+  .voted-info.show { display: block; }
+
+  .voted-info .change-vote {
+    color: #667eea;
+    text-decoration: underline;
+    cursor: pointer;
+    font-weight: 600;
+  }
+
+  /* 底部提示 */
+  .footer-tip {
+    text-align: center;
+    padding: 20px 0 10px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.7);
+  }
+
+  /* 同步动画 */
+  .sync-flash {
+    animation: flash-update 0.5s ease;
+  }
+
+  @keyframes flash-update {
+    0% { background-color: rgba(102, 126, 234, 0.15); }
+    100% { background-color: transparent; }
+  }
+
+  /* 结果弹窗 */
+  .result-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .result-overlay.show { display: flex; }
+
+  .result-card {
+    background: white;
+    border-radius: 24px;
+    padding: 32px 24px;
+    text-align: center;
+    max-width: 320px;
+    width: 100%;
+    animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  @keyframes popIn {
+    0% { transform: scale(0.7); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .result-card .trophy { font-size: 64px; margin-bottom: 12px; }
+  .result-card h2 { font-size: 20px; color: #333; margin-bottom: 6px; }
+
+  .result-card .winner-name {
+    font-size: 26px;
+    font-weight: 800;
+    color: #f5a623;
+    margin-bottom: 16px;
+  }
+
+  .result-card .result-detail {
+    font-size: 14px;
+    color: #888;
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+
+  .result-card .close-btn {
+    padding: 12px 40px;
+    border: none;
+    border-radius: 25px;
+    font-size: 15px;
+    font-weight: 600;
+    color: white;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    cursor: pointer;
+  }
+
+  /* 烟花 */
+  .fireworks {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 999;
+    display: none;
+  }
+
+  .fireworks.show { display: block; }
+
+  .particle {
+    position: absolute;
+    border-radius: 50%;
+  }
+
+  /* 加载状态 */
+  .loading-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.4s ease;
+  }
+
+  .loading-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .loader-spinner {
+    width: 44px;
+    height: 44px;
+    border: 4px solid rgba(255,255,255,0.25);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .loading-text {
+    color: white;
+    font-size: 15px;
+    margin-top: 16px;
+    font-weight: 500;
+  }
+
+  /* Toast提示 */
+  .toast {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: rgba(0,0,0,0.75);
+    color: white;
+    padding: 10px 22px;
+    border-radius: 25px;
+    font-size: 14px;
+    z-index: 200;
+    opacity: 0;
+    transition: all 0.3s ease;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* 新投票动画 */
+  .new-vote-anim {
+    animation: vote-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  @keyframes vote-pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+</style>
+</head>
+<body>
+
+<!-- 加载遮罩 -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loader-spinner"></div>
+  <div class="loading-text">正在连接服务器...</div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<div class="container">
+  <!-- 头部 -->
+  <div class="header">
+    <div class="emoji-big">🍜</div>
+    <h1>今天中午吃什么？</h1>
+    <div class="subtitle">快来投票决定今天的午餐吧～</div>
+  </div>
+
+  <!-- 统计栏 -->
+  <div class="stats-bar">
+    <div class="stat-item">👥 参与<span class="num" id="totalParticipants">0</span>人</div>
+    <div class="stat-item">📊 总票数<span class="num" id="totalVotes">0</span>票</div>
+  </div>
+
+  <!-- 在线状态 -->
+  <div class="online-indicator">
+    <span class="online-dot"></span>
+    <span id="onlineStatus">实时同步中...</span>
+  </div>
+
+  <!-- 投票区域 -->
+  <div class="vote-section">
+    <div class="section-title">📋 选择你想吃的（单选）</div>
+    
+    <div class="options-list" id="optionsList">
+      <!-- 动态生成 -->
+    </div>
+
+    <button class="vote-btn" id="voteBtn" onclick="submitVote()">确认投票 ✨</button>
+
+    <div class="voted-info" id="votedInfo">
+      ✅ 你已投给 <strong id="myVoteName"></strong> · 
+      <span class="change-vote" onclick="changeVote()">修改投票</span>
+    </div>
+  </div>
+
+  <div class="footer-tip">💬 分享此链接让同事一起投票 · 数据云端实时同步</div>
+</div>
+
+<!-- 结果弹窗 -->
+<div class="result-overlay" id="resultOverlay" onclick="closeResult(event)">
+  <div class="result-card" onclick="event.stopPropagation()">
+    <div class="trophy">🏆</div>
+    <h2>投票结果出炉！</h2>
+    <div class="winner-name" id="resultWinnerName"></div>
+    <div class="result-detail" id="resultDetail"></div>
+    <button class="close-btn" onclick="closeResultDirect()">太好了 🎉</button>
+  </div>
+</div>
+
+<!-- 烟花容器 -->
+<div class="fireworks" id="fireworks"></div>
+
+<script>
+// ========== 配置 ==========
+const OPTIONS = [
+  { id: 'baman', name: '霸蛮', emoji: '🍜' },
+  { id: 'chuanchuan', name: '串串', emoji: '🍢' },
+  { id: 'xiaoman', name: '小满手工粉', emoji: '🍲' },
+  { id: 'chaocai', name: '炒菜', emoji: '🥘' },
+  { id: 'banmian', name: '板面', emoji: '🍝' },
+  { id: 'niubanjin', name: '牛半斤', emoji: '🐂' },
+  { id: 'malatang', name: '麻辣烫', emoji: '🌶️' },
+];
+
+const DB_PATH = 'lunch_vote_2026'; // 数据库路径
+
+let selectedOption = null;
+let myVoteId = null; // 当前用户的 voterId
+let myChoice = null; // 当前用户的选择
+let dbRef = null;
+let votesData = {}; // 本地缓存
+let onlineCount = 0;
+
+// ========== Firebase 初始化 ==========
+const firebaseConfig = {
+  apiKey: "AIzaSyBPwN0vVfmNRLCXhxmEZt71iRJqxxTBpGc",
+  authDomain: "lunch-vote-tool.firebaseapp.com",
+  databaseURL: "https://lunch-vote-tool-default-rtdb.firebaseio.com",
+  projectId: "lunch-vote-tool",
+  storageBucket: "lunch-vote-tool.firebasestorage.app",
+  messagingSenderId: "123456789012",
+  appId: "1:123456789012:web:abcdef123456"
+};
+
+firebase.initializeApp(firebaseConfig);
+dbRef = firebase.database().ref(DB_PATH);
+
+// ========== 初始化 ==========
+function init() {
+  // 监听数据变化（实时同步核心）
+  dbRef.on('value', (snapshot) => {
+    const data = snapshot.val();
+    
+    if (data && data.votes) {
+      const oldTotal = Object.values(votesData).reduce((a, b) => a + b, 0);
+      votesData = data.votes || {};
+      
+      const newTotal = Object.values(votesData).reduce((a, b) => a + b, 0);
+      
+      renderOptions(newTotal > oldTotal);
+      updateStats();
+
+      if (newTotal > oldTotal && oldTotal > 0) {
+        showToast('🔄 有新票数更新！');
+      }
+
+      checkAndShowResult();
+    } else {
+      votesData = {};
+      renderOptions(false);
+      updateStats();
+    }
+
+    // 隐藏加载
+    setTimeout(() => {
+      document.getElementById('loadingOverlay').classList.add('hidden');
+    }, 300);
+
+    updateOnlineStatus(true);
+  }, (error) => {
+    console.error('Firebase 连接错误:', error);
+    document.getElementById('loadingOverlay').querySelector('.loading-text').textContent = 
+      '连接失败，请刷新重试';
+    updateOnlineStatus(false);
+  });
+
+  // 检查本地是否已投票
+  checkLocalVote();
+}
+
+// ========== 渲染选项 ==========
+function renderOptions(isNewUpdate) {
+  const container = document.getElementById('optionsList');
+  const totalVotes = Object.values(votesData).reduce((a, b) => a + b, 0);
+  const maxVotes = Math.max(...Object.values(votesData), 0);
+
+  container.innerHTML = OPTIONS.map(opt => {
+    const count = votesData[opt.id] || 0;
+    const pct = totalVotes > 0 ? ((count / totalVotes) * 100).toFixed(0) : 0;
+    const isWinner = count === maxVotes && count > 0 && totalVotes > 0;
+    const isSelected = selectedOption === opt.id;
+
+    return `
+      <div class="option-item ${isSelected ? 'selected' : ''} ${isWinner ? 'winner' : ''} ${isNewUpdate && count > 0 ? 'new-vote-anim' : ''}" 
+           data-id="${opt.id}" onclick="selectOption('${opt.id}')">
+        <div class="radio-circle"></div>
+        <div class="option-info">
+          <div class="option-name"><span class="emoji">${opt.emoji}</span>${opt.name}</div>
+          <div class="progress-wrap">
+            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+            <span class="vote-count">${count}</span>
+            <span class="vote-label">票</span>
+          </div>
+        </div>
+        <div class="winner-badge">👑 最热</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ========== 选择选项 ==========
+function selectOption(id) {
+  if (myChoice) return; 
+  selectedOption = id;
+  renderOptions(false);
+}
+
+// ========== 提交投票 ==========
+async function submitVote() {
+  if (!selectedOption) {
+    const btn = document.getElementById('voteBtn');
+    btn.style.animation = 'shake 0.4s ease';
+    setTimeout(() => btn.style.animation = '', 400);
+    showToast('请先选择一个选项哦～ 😋');
+    return;
+  }
+
+  const btn = document.getElementById('voteBtn');
+  btn.disabled = true;
+  btn.textContent = '提交中...';
+
+  try {
+    // 生成唯一用户ID
+    myVoteId = generateVoterId();
+    myChoice = selectedOption;
+
+    // 写入云端
+    await dbRef.child('votes').child(selectedOption).transaction((current) => {
+      return (current || 0) + 1;
+    });
+
+    // 记录用户信息
+    await dbRef.child('voters').child(myVoteId).set({
+      choice: selectedOption,
+      time: Date.now(),
+      ua: navigator.userAgent.substring(0, 80)
+    });
+
+    // 本地保存
+    localStorage.setItem('lunch_voter_id', myVoteId);
+    localStorage.setItem('lunch_my_choice', myChoice);
+
+    // 更新UI
+    updateVotedUI();
+    showToast('✅ 投票成功！');
+
+  } catch (error) {
+    console.error('投票失败:', error);
+    btn.disabled = false;
+    btn.textContent = '确认投票 ✨';
+    showToast('❌ 投票失败，请重试');
+  }
+}
+
+function updateVotedUI() {
+  const opt = OPTIONS.find(o => o.id === myChoice);
+  document.getElementById('voteBtn').textContent = '已投票 ✓';
+  document.getElementById('voteBtn').classList.add('voted');
+  document.getElementById('myVoteName').textContent = opt ? `${opt.emoji} ${opt.name}` : '';
+  document.getElementById('votedInfo').classList.add('show');
+}
+
+// ========== 修改投票 ==========
+async function changeVote() {
+  if (!myChoice || !myVoteId) return;
+
+  try {
+    // 减去旧票数
+    await dbRef.child('votes').child(myChoice).transaction((current) => {
+      const val = current || 0;
+      return val > 0 ? val - 1 : 0;
+    });
+
+    // 删除投票记录
+    await dbRef.child('voters').child(myVoteId).remove();
+
+    // 重置本地
+    localStorage.removeItem('lunch_voter_id');
+    localStorage.removeItem('lunch_my_choice');
+    myChoice = null;
+    myVoteId = null;
+    selectedOption = null;
+
+    // 重置UI
+    document.getElementById('voteBtn').textContent = '确认投票 ✨';
+    document.getElementById('voteBtn').classList.remove('voted');
+    document.getElementById('voteBtn').disabled = false;
+    document.getElementById('votedInfo').classList.remove('show');
+
+    renderOptions(false);
+    showToast('已撤销，可以重新选择～');
+
+  } catch (error) {
+    console.error('修改失败:', error);
+    showToast('操作失败，请刷新重试');
+  }
+}
+
+// ========== 检查本地投票记录 ==========
+function checkLocalVote() {
+  const savedId = localStorage.getItem('lunch_voter_id');
+  const savedChoice = localStorage.getItem('lunch_my_choice');
+
+  if (savedId && savedChoice) {
+    myVoteId = savedId;
+    myChoice = savedChoice;
+    selectedOption = savedChoice;
+    updateVotedUI();
+  }
+}
+
+// ========== 更新统计 ==========
+function updateStats() {
+  const total = Object.values(votesData).reduce((a, b) => a + b, 0);
+  document.getElementById('totalVotes').textContent = total;
+  document.getElementById('totalParticipants').textContent = total;
+}
+
+// ========== 检查并显示结果 ==========
+let resultShown = false;
+function checkAndShowResult() {
+  if (resultShown) return;
+  
+  const total = Object.values(votesData).reduce((a, b) => a + b, 0);
+  
+  if (total >= 3) {
+    resultShown = true;
+    setTimeout(() => showResult(), 800);
+  }
+}
+
+function showResult() {
+  const total = Object.values(votesData).reduce((a, b) => a + b, 0);
+  
+  let winnerId = null;
+  let maxCount = 0;
+  for (const [id, count] of Object.entries(votesData)) {
+    if (count > maxCount) {
+      maxCount = count;
+      winnerId = id;
+    }
+  }
+
+  const winner = OPTIONS.find(o => o.id === winnerId);
+  const pct = total > 0 ? ((maxCount / total) * 100).toFixed(0) : 0;
+
+  document.getElementById('resultWinnerName').textContent = 
+    winner ? `${winner.emoji} ${winner.name}` : '暂无';
+  document.getElementById('resultDetail').innerHTML = 
+    `获得 <strong>${maxCount}</strong> 票（占 ${pct}%）<br>共 ${total} 人参与投票`;
+  
+  document.getElementById('resultOverlay').classList.add('show');
+  fireworks();
+}
+
+function closeResult(e) {
+  if (e.target.id === 'resultOverlay') closeResultDirect();
+}
+
+function closeResultDirect() {
+  document.getElementById('resultOverlay').classList.remove('show');
+}
+
+// ========== 工具函数 ==========
+function generateVoterId() {
+  return 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
+}
+
+function updateOnlineStatus(connected) {
+  const el = document.getElementById('onlineStatus');
+  el.textContent = connected ? '☁️ 实时同步中 · 云端已连接' : '⚠️ 连接断开';
+  el.style.color = connected ? 'rgba(102,126,234,0.8)' : '#ff5964';
+}
+
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+// ========== 烟花特效 ==========
+function fireworks() {
+  const container = document.getElementById('fireworks');
+  container.classList.add('show');
+  container.innerHTML = '';
+
+  const colors = ['#ff6b6b','#feca57','#48dbfb','#ff9ff3','#54a0ff','#5f27cd','#00d2d3','#1dd1a1'];
+  const cx = window.innerWidth / 2;
+  const cy = window.innerHeight / 2.5;
+
+  for (let i = 0; i < 36; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.cssText = `position:absolute;width:${5+Math.random()*6}px;height:${5+Math.random()*6}px;background:${colors[i%colors.length]};left:${cx}px;top:${cy}px;border-radius:50%;pointer-events:none;`;
+    
+    const angle = (Math.PI * 2 * i) / 36 + (Math.random()-0.5)*0.3;
+    const dist = 70 + Math.random() * 160;
+    p.animate([
+      { transform: 'translate(0,0) scale(1)', opacity: 1 },
+      { transform: `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px) scale(0)`, opacity: 0 }
+    ], { duration: 800 + Math.random()*400, easing: 'ease-out' });
+    
+    container.appendChild(p);
+  }
+
+  setTimeout(() => container.classList.remove('show'), 1400);
+}
+
+// shake动画
+const style = document.createElement('style');
+style.textContent = `@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}`;
+document.head.appendChild(style);
+
+// 启动
+init();
+</script>
+
+</body>
+</html>
