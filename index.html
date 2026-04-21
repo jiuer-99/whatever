@@ -1,641 +1,783 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>🍜 今天中午吃什么？</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🍜 中午吃什么 - 投票</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- 腾讯云云开发SDK -->
+    <script src="https://imgcache.qq.com/qcloud/cloudbase-js-sdk/2.1.0/cloudbase.full.js"></script>
+    <style>
+        :root {
+            --primary: #FF6B35;
+            --primary-dark: #E55A2B;
+            --secondary: #F7C59F;
+            --bg: #FFF8F3;
+            --card-bg: #FFFFFF;
+            --text: #2D3436;
+            --text-light: #636E72;
+            --border: #FFE5D9;
+            --shadow: 0 4px 20px rgba(255, 107, 53, 0.15);
+            --shadow-hover: 0 8px 30px rgba(255, 107, 53, 0.25);
+        }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  min-height: 100vh;
-  padding: 20px 16px;
-  color: #333;
-}
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
-.container { max-width: 420px; margin: 0 auto; }
+        body {
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--bg) 0%, #FFF0E8 100%);
+            min-height: 100vh;
+            color: var(--text);
+            padding: 20px 16px;
+            -webkit-tap-highlight-color: transparent;
+        }
 
-/* 头部 */
-.header {
-  text-align: center;
-  padding: 30px 20px 24px;
-  background: rgba(255,255,255,0.95);
-  border-radius: 20px 20px 16px 16px;
-  margin-bottom: 2px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-}
-.header .emoji-big {
-  font-size: 56px; margin-bottom: 8px;
-  animation: bounce 2s ease infinite;
-}
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-.header h1 { font-size: 22px; color: #333; margin-bottom: 6px; font-weight: 700; }
-.header .subtitle { font-size: 13px; color: #888; }
+        .container { max-width: 375px; margin: 0 auto; }
 
-/* 统计栏 */
-.stats-bar {
-  display: flex; justify-content: center; gap: 20px;
-  padding: 14px 20px; background: rgba(255,255,255,0.95); font-size: 13px;
-}
-.stat-item { display: flex; align-items: center; gap: 5px; color: #666; }
-.stat-item .num { font-weight: 700; color: #667eea; font-size: 18px; }
+        /* Loading */
+        .init-loading {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        .init-loading .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .init-loading p { color: var(--text-light); font-size: 14px; }
 
-/* 在线指示器 */
-.online-indicator {
-  display: flex; align-items: center; justify-content: center; gap: 5px;
-  padding: 8px 0 0; font-size: 12px; color: rgba(102,126,234,0.8);
-  background: rgba(255,255,255,0.95);
-}
-.online-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  animation: pulse-dot 1.5s ease infinite;
-}
-.online-dot.connected { background: #32C14F; }
-.online-dot.disconnected { background: #ccc; animation: none; }
-.online-dot.syncing { background: #f5a623; }
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
-}
+        /* Header */
+        .header { text-align: center; margin-bottom: 24px; padding-top: 10px; }
+        .header-icon { font-size: 48px; margin-bottom: 8px; animation: bounce 2s infinite; }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .header h1 { font-size: 24px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+        .header p { font-size: 14px; color: var(--text-light); }
 
-/* 投票区域 */
-.vote-section {
-  background: rgba(255,255,255,0.95);
-  border-radius: 16px 16px 20px 20px;
-  padding: 20px 18px 24px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-}
-.section-title {
-  font-size: 15px; font-weight: 600; color: #555;
-  margin-bottom: 16px; display: flex; align-items: center; gap: 6px;
-}
+        /* Room Card */
+        .room-card {
+            display: none;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 20px;
+            color: white;
+            box-shadow: var(--shadow);
+        }
+        .room-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .room-label { font-size: 12px; opacity: 0.9; }
+        .room-id { font-size: 20px; font-weight: 700; letter-spacing: 2px; }
+        .copy-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .copy-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.3); }
+        .room-stats { display: flex; gap: 20px; font-size: 13px; }
+        .stat { display: flex; align-items: center; gap: 6px; }
 
-/* 选项列表 */
-.options-list { display: flex; flex-direction: column; gap: 10px; }
-.option-item {
-  position: relative; display: flex; align-items: center;
-  padding: 14px 16px; background: #f8f9fc; border-radius: 12px;
-  cursor: pointer; transition: all 0.25s ease;
-  border: 2px solid transparent; overflow: hidden;
-}
-.option-item:active { transform: scale(0.98); }
-.option-item.selected {
-  border-color: #667eea; background: linear-gradient(135deg, #f0f3ff 0%, #e8ecff 100%);
-}
-.option-item.selected .radio-circle { border-color: #667eea; background: #667eea; }
-.option-item.selected .radio-circle::after { opacity: 1; transform: scale(1); }
-.option-item.winner {
-  border-color: #f5a623; background: linear-gradient(135deg, #fff9f0 0%, #fff4e0 100%);
-}
-.option-item.winner .winner-badge { display: flex; }
+        /* Options List */
+        .options-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        .option-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+        .option-card.initial { animation: fadeIn 0.4s ease backwards; }
+        .option-card:nth-child(1).initial { animation-delay: 0.05s; }
+        .option-card:nth-child(2).initial { animation-delay: 0.1s; }
+        .option-card:nth-child(3).initial { animation-delay: 0.15s; }
+        .option-card:nth-child(4).initial { animation-delay: 0.2s; }
+        .option-card:nth-child(5).initial { animation-delay: 0.25s; }
+        .option-card:nth-child(6).initial { animation-delay: 0.3s; }
+        .option-card:nth-child(7).initial { animation-delay: 0.35s; }
+        .option-card:active { transform: scale(0.98); }
+        .option-card.selected { border-color: var(--primary); box-shadow: var(--shadow); }
+        .option-card.winner { background: linear-gradient(135deg, #FFF5F0 0%, #FFEEE5 100%); border-color: var(--primary); }
+        .option-main { display: flex; align-items: center; gap: 12px; position: relative; z-index: 2; }
+        .option-icon {
+            width: 48px; height: 48px;
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px;
+            background: var(--bg);
+            flex-shrink: 0;
+        }
+        .option-info { flex: 1; }
+        .option-name { font-size: 16px; font-weight: 600; margin-bottom: 2px; }
+        .option-votes { font-size: 13px; color: var(--text-light); }
+        .option-check {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            border: 2px solid #DDD;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+        .option-card.selected .option-check {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        .option-card.selected .option-check::after {
+            content: '✓'; color: white; font-size: 14px; font-weight: bold;
+        }
+        .progress-bar {
+            position: absolute; left: 0; top: 0; bottom: 0;
+            background: linear-gradient(90deg, rgba(255,107,53,0.08) 0%, rgba(255,107,53,0.15) 100%);
+            border-radius: 14px;
+            transition: width 0.5s ease;
+            z-index: 1;
+        }
+        .winner-badge {
+            position: absolute; top: 8px; right: 8px;
+            background: var(--primary); color: white;
+            font-size: 10px; padding: 3px 8px;
+            border-radius: 10px; font-weight: 600;
+            z-index: 3;
+        }
 
-/* 单选按钮 */
-.radio-circle {
-  width: 22px; height: 22px; border-radius: 50%; border: 2px solid #ccc;
-  margin-right: 12px; flex-shrink: 0; position: relative; transition: all 0.2s ease;
-}
-.radio-circle::after {
-  content: ''; position: absolute; top: 50%; left: 50%;
-  transform: translate(-50%, -50%) scale(0);
-  width: 10px; height: 10px; border-radius: 50%;
-  background: white; opacity: 0; transition: all 0.2s ease;
-}
+        /* Actions */
+        .actions { display: flex; gap: 12px; margin-bottom: 20px; }
+        .btn {
+            flex: 1; padding: 14px; border-radius: 12px;
+            border: none; font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: all 0.3s; font-family: inherit;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white; box-shadow: var(--shadow);
+        }
+        .btn-primary:active { transform: scale(0.98); box-shadow: var(--shadow-hover); }
+        .btn-secondary {
+            background: white; color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:active { background: var(--bg); }
 
-.option-info { flex: 1; min-width: 0; }
-.option-name { font-size: 15px; font-weight: 600; color: #333; margin-bottom: 4px; }
-.option-name .emoji { margin-right: 5px; font-size: 17px; }
+        /* Success Page */
+        .success-page { display: none; text-align: center; padding: 40px 20px; animation: fadeIn 0.5s ease; }
+        .success-page.show { display: block; }
+        .success-icon {
+            width: 100px; height: 100px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 24px; font-size: 50px;
+            box-shadow: var(--shadow);
+            animation: scaleIn 0.5s ease;
+        }
+        @keyframes scaleIn {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .success-title { font-size: 24px; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+        .success-subtitle { font-size: 15px; color: var(--text-light); margin-bottom: 32px; }
+        .success-choice {
+            background: var(--card-bg); border-radius: 16px;
+            padding: 20px; margin-bottom: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .success-choice-icon { font-size: 48px; margin-bottom: 8px; }
+        .success-choice-name { font-size: 20px; font-weight: 600; color: var(--text); }
 
-/* 进度条 */
-.progress-wrap { display: flex; align-items: center; gap: 8px; }
-.progress-bar { flex: 1; height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
-.progress-fill {
-  height: 100%; border-radius: 4px;
-  background: linear-gradient(90deg, #667eea, #764ba2);
-  transition: width 0.5s ease; width: 0%;
-}
-.option-item.winner .progress-fill { background: linear-gradient(90deg, #f5a623, #f7b733); }
-.vote-count { font-size: 13px; font-weight: 700; color: #667eea; min-width: 28px; text-align: right; }
-.option-item.winner .vote-count { color: #f5a623; }
-.vote-label { font-size: 11px; color: #aaa; min-width: 22px; }
+        /* Success Stats */
+        .success-stats {
+            display: flex; align-items: center; justify-content: center; gap: 24px;
+            background: var(--card-bg); border-radius: 16px;
+            padding: 20px; margin-bottom: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .success-stat { text-align: center; flex: 1; }
+        .success-stat-icon { font-size: 24px; margin-bottom: 6px; }
+        .success-stat-label { font-size: 12px; color: var(--text-light); margin-bottom: 4px; }
+        .success-stat-value { font-size: 18px; font-weight: 700; color: var(--primary); }
+        .success-stat-divider { width: 1px; height: 50px; background: var(--border); }
 
-/* 冠军标签 */
-.winner-badge {
-  display: none; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, #f5a623, #f7b733);
-  color: white; font-size: 11px; font-weight: 700;
-  padding: 3px 8px; border-radius: 20px; margin-left: 8px; flex-shrink: 0;
-}
+        /* Vote Result Preview */
+        .vote-result-preview {
+            background: linear-gradient(135deg, #FFF5F0 0%, #FFEEE5 100%);
+            border-radius: 12px; padding: 16px; margin-bottom: 24px;
+        }
+        .result-preview-title { font-size: 13px; color: var(--text-light); margin-bottom: 12px; }
+        .result-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .result-bar:last-child { margin-bottom: 0; }
+        .result-bar-name { font-size: 13px; width: 80px; text-align: left; }
+        .result-bar-track {
+            flex: 1; height: 8px;
+            background: rgba(255,107,53,0.1);
+            border-radius: 4px; overflow: hidden;
+        }
+        .result-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        .result-bar-count { font-size: 12px; color: var(--text-light); width: 30px; text-align: right; }
 
-/* 按钮 */
-.vote-btn {
-  width: 100%; padding: 16px; margin-top: 16px; border: none; border-radius: 14px;
-  font-size: 17px; font-weight: 700; color: white;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  cursor: pointer; transition: all 0.25s ease;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); letter-spacing: 2px;
-}
-.vote-btn:active { transform: scale(0.97); box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3); }
-.vote-btn:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
-.vote-btn.voted { background: linear-gradient(135deg, #32C14F 0%, #28a745 100%); box-shadow: 0 4px 15px rgba(50, 193, 79, 0.4); }
+        /* Back link */
+        .back-link {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 14px; color: var(--text-light);
+            cursor: pointer; margin-bottom: 16px; padding: 4px 0;
+        }
+        .back-link:active { opacity: 0.7; }
 
-/* 已投票提示 */
-.voted-info {
-  text-align: center; padding: 16px; margin-top: 12px;
-  background: linear-gradient(135deg, #e8fdf0 0%, #d4f5e0 100%);
-  border-radius: 12px; font-size: 14px; color: #28a745; font-weight: 500; display: none;
-}
-.voted-info.show { display: block; }
-.voted-info .change-vote { color: #667eea; text-decoration: underline; cursor: pointer; font-weight: 600; }
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 100px; left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(45, 52, 54, 0.95);
+            color: white; padding: 12px 24px;
+            border-radius: 24px; font-size: 14px;
+            opacity: 0; transition: all 0.3s;
+            z-index: 1000; white-space: nowrap;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-.footer-tip { text-align: center; padding: 20px 0 10px; font-size: 12px; color: rgba(255,255,255,0.7); }
-
-/* 新票动画 */
-.new-vote-anim { animation: vote-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-@keyframes vote-pop { 0%{transform:scale(1)} 40%{transform:scale(1.04)} 100%{transform:scale(1)} }
-
-/* 结果弹窗 */
-.result-overlay {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.5); z-index: 100;
-  display: none; align-items: center; justify-content: center; padding: 20px;
-}
-.result-overlay.show { display: flex; }
-.result-card {
-  background: white; border-radius: 24px; padding: 32px 24px;
-  text-align: center; max-width: 320px; width: 100%;
-  animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-@keyframes popIn { 0%{transform:scale(0.7);opacity:0} 100%{transform:scale(1);opacity:1} }
-.result-card .trophy { font-size: 64px; margin-bottom: 12px; }
-.result-card h2 { font-size: 20px; color: #333; margin-bottom: 6px; }
-.result-card .winner-name { font-size: 26px; font-weight: 800; color: #f5a623; margin-bottom: 16px; }
-.result-card .result-detail { font-size: 14px; color: #888; line-height: 1.6; margin-bottom: 24px; }
-.close-btn {
-  padding: 12px 40px; border: none; border-radius: 25px;
-  font-size: 15px; font-weight: 600; color: white;
-  background: linear-gradient(135deg, #667eea, #764ba2); cursor: pointer;
-}
-
-/* 烟花 */
-.fireworks { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 999; display: none; }
-.fireworks.show { display: block; }
-.particle { position: absolute; border-radius: 50%; }
-
-/* 加载遮罩 */
-.loading-overlay {
-  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  z-index: 1000; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; transition: opacity 0.4s ease;
-}
-.loading-overlay.hidden { opacity: 0; pointer-events: none; }
-.loader-spinner {
-  width: 44px; height: 44px; border: 4px solid rgba(255,255,255,0.25);
-  border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.loading-text { color: white; font-size: 15px; margin-top: 16px; font-weight: 500; }
-
-/* Toast */
-.toast {
-  position: fixed; top: 60px; left: 50%;
-  transform: translateX(-50%) translateY(-20px);
-  background: rgba(0,0,0,0.75); color: white;
-  padding: 10px 22px; border-radius: 25px; font-size: 14px;
-  z-index: 200; opacity: 0; transition: all 0.3s ease; pointer-events: none; white-space: nowrap;
-}
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-/* 重置按钮 */
-.reset-area {
-  text-align: center; margin-top: 16px;
-}
-.reset-btn {
-  background: none; border: none; color: #999; font-size: 12px;
-  cursor: pointer; text-decoration: underline;
-}
-</style>
+        /* Animations */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .hidden { display: none !important; }
+    </style>
 </head>
 <body>
-
-<div class="loading-overlay" id="loadingOverlay">
-  <div class="loader-spinner"></div>
-  <div class="loading-text">正在连接云端...</div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<div class="container">
-  <div class="header">
-    <div class="emoji-big">🍜</div>
-    <h1>今天中午吃什么？</h1>
-    <div class="subtitle">快来投票决定今天的午餐吧～</div>
-  </div>
-
-  <div class="stats-bar">
-    <div class="stat-item">👥 参与<span class="num" id="totalParticipants">0</span>人</div>
-    <div class="stat-item">📊 总票数<span class="num" id="totalVotes">0</span>票</div>
-  </div>
-
-  <div class="online-indicator">
-    <span class="online-dot disconnected" id="onlineDot"></span>
-    <span id="onlineStatus">正在连接...</span>
-  </div>
-
-  <div class="vote-section">
-    <div class="section-title">📋 选择你想吃的（单选）</div>
-    
-    <div class="options-list" id="optionsList"></div>
-
-    <button class="vote-btn" id="voteBtn" onclick="submitVote()">确认投票 ✨</button>
-
-    <div class="voted-info" id="votedInfo">
-      ✅ 你已投给 <strong id="myVoteName"></strong> · 
-      <span class="change-vote" onclick="changeVote()">修改投票</span>
-    </div>
-
-    <div class="reset-area">
-      <button class="reset-btn" onclick="resetAllVotes()">🗑️ 清空所有投票（管理员）</button>
-    </div>
-  </div>
-
-  <div class="footer-tip">💬 分享此链接让同事一起投票 · 数据实时同步</div>
-</div>
-
-<!-- 结果弹窗 -->
-<div class="result-overlay" id="resultOverlay" onclick="closeResult(event)">
-  <div class="result-card" onclick="event.stopPropagation()">
-    <div class="trophy">🏆</div>
-    <h2>投票结果出炉！</h2>
-    <div class="winner-name" id="resultWinnerName"></div>
-    <div class="result-detail" id="resultDetail"></div>
-    <button class="close-btn" onclick="closeResultDirect()">太好了 🎉</button>
-  </div>
-</div>
-
-<div class="fireworks" id="fireworks"></div>
-
-<script>
-// ========== 配置 ==========
-const OPTIONS = [
-  { id: 'baman', name: '霸蛮', emoji: '🍜' },
-  { id: 'chuanchuan', name: '串串', emoji: '🍢' },
-  { id: 'xiaoman', name: '小满手工粉', emoji: '🍲' },
-  { id: 'chaocai', name: '炒菜', emoji: '🥘' },
-  { id: 'banmian', name: '板面', emoji: '🍝' },
-  { id: 'niubanjin', name: '牛半斤', emoji: '🐂' },
-  { id: 'malatang', name: '麻辣烫', emoji: '🌶️' },
-];
-
-// 使用 JSONBin.io Vercel 版本作为免费云存储（无需注册）
-const API_BASE = 'https://jsonbin-zeta.vercel.app/api/bins';
-// 固定的 Bin ID —— 所有用户共享同一个数据
-const BIN_ID = 'lunch-vote-2026';
-
-// 初始投票数据结构
-const INITIAL_DATA = {
-  votes: {},
-  voters: {},
-  createdAt: Date.now(),
-  version: 1
-};
-
-let selectedOption = null;
-let myVoterId = null;
-let myChoice = null;
-let votesData = {};
-let isCloudConnected = false;
-let pollTimer = null;
-let resultShown = false;
-
-// ========== 云端存储 API ==========
-async function readFromCloud() {
-  try {
-    const res = await fetch(`${API_BASE}/${BIN_ID}`);
-    if (res.ok) {
-      const json = await res.json();
-      if (json && json.data) return json.data;
-    }
-    return null;
-  } catch (e) {
-    console.warn('读取云端失败:', e.message);
-    return null;
-  }
-}
-
-async function writeToCloud(data) {
-  try {
-    const res = await fetch(`${API_BASE}/${BIN_ID}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    if (!res.ok) throw new Error('写入失败');
-    return true;
-  } catch (e) {
-    console.warn('写入云端失败:', e.message);
-    return false;
-  }
-}
-
-// ========== 初始化 ==========
-async function init() {
-  updateOnlineStatus('syncing', '连接云端中...');
-  
-  // 先尝试从云端读取
-  const cloudData = await readFromCloud();
-  
-  if (cloudData && cloudData.votes) {
-    // 云端有数据
-    votesData = cloudData.votes || {};
-    isCloudConnected = true;
-    updateOnlineStatus('connected', '☁️ 已连接云端 · 实时同步');
-  } else {
-    // 云端无数据，初始化
-    await writeToCloud(INITIAL_DATA);
-    votesData = {};
-    isCloudConnected = true;
-    updateOnlineStatus('connected', '☁️ 已连接云端 · 新建投票');
-  }
-
-  // 渲染UI
-  renderOptions(false);
-  updateStats();
-  checkLocalVote();
-
-  // 隐藏加载
-  setTimeout(() => {
-    document.getElementById('loadingOverlay').classList.add('hidden');
-  }, 400);
-
-  // 启动轮询（每5秒检查一次更新）
-  startPolling();
-}
-
-// ========== 轮询同步 ==========
-function startPolling() {
-  if (pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(async () => {
-    const cloudData = await readFromCloud();
-    if (cloudData && cloudData.votes) {
-      const oldTotal = Object.values(votesData).reduce((a,b)=>a+b, 0);
-      votesData = cloudData.votes || {};
-      const newTotal = Object.values(votesData).reduce((a,b)=>a+b, 0);
-      
-      renderOptions(newTotal > oldTotal);
-      updateStats();
-      
-      if (newTotal > oldTotal && oldTotal > 0) {
-        showToast('🔄 有新投票！');
-      }
-      
-      checkAndShowResult();
-    }
-  }, 5000);
-}
-
-// ========== 渲染选项 ==========
-function renderOptions(isNewUpdate) {
-  const container = document.getElementById('optionsList');
-  const totalVotes = Object.values(votesData).reduce((a, b) => a + b, 0);
-  const maxVotes = Math.max(...Object.values(votesData), 0);
-
-  container.innerHTML = OPTIONS.map(opt => {
-    const count = votesData[opt.id] || 0;
-    const pct = totalVotes > 0 ? ((count / totalVotes) * 100).toFixed(0) : 0;
-    const isWinner = count === maxVotes && count > 0 && totalVotes > 0;
-    const isSelected = selectedOption === opt.id;
-
-    return `
-      <div class="option-item ${isSelected ? 'selected' : ''} ${isWinner ? 'winner' : ''} ${isNewUpdate && count > 0 ? 'new-vote-anim' : ''}" 
-           data-id="${opt.id}" onclick="selectOption('${opt.id}')">
-        <div class="radio-circle"></div>
-        <div class="option-info">
-          <div class="option-name"><span class="emoji">${opt.emoji}</span>${opt.name}</div>
-          <div class="progress-wrap">
-            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-            <span class="vote-count">${count}</span>
-            <span class="vote-label">票</span>
-          </div>
+    <div class="container">
+        <!-- 初始化加载中 -->
+        <div id="initLoading" class="init-loading">
+            <div class="spinner"></div>
+            <p>正在连接服务器...</p>
         </div>
-        <div class="winner-badge">👑 最热</div>
-      </div>
-    `;
-  }).join('');
-}
 
-// ========== 选择 ==========
-function selectOption(id) {
-  if (myChoice) return;
-  selectedOption = id;
-  renderOptions(false);
-}
+        <!-- 投票页面 -->
+        <div id="votePage" class="hidden">
+            <div class="header">
+                <div class="header-icon">🍜</div>
+                <h1>中午吃什么</h1>
+                <p>单选投票 · 实时同步</p>
+            </div>
 
-// ========== 提交投票 ==========
-async function submitVote() {
-  if (!selectedOption) {
-    showToast('请先选择一个选项哦～ 😋');
-    return;
-  }
+            <div class="room-card">
+                <div class="room-header">
+                    <div>
+                        <div class="room-label">房间号</div>
+                        <div class="room-id" id="roomId">----</div>
+                    </div>
+                    <button class="copy-btn" onclick="copyRoomId()">复制</button>
+                </div>
+                <div class="room-stats">
+                    <div class="stat"><span>👥</span><span id="voterCount">0 人参与</span></div>
+                    <div class="stat"><span>🗳️</span><span id="totalVotes">0 票</span></div>
+                </div>
+            </div>
 
-  const btn = document.getElementById('voteBtn');
-  btn.disabled = true;
-  btn.textContent = '提交中...';
+            <div id="optionsContainer" class="options-list"></div>
 
-  myVoterId = generateId();
-  myChoice = selectedOption;
+            <div class="actions">
+                <button class="btn btn-secondary" onclick="resetVote()">新建投票</button>
+                <button class="btn btn-primary" id="confirmBtn" onclick="confirmVote()">确认投票 ✨</button>
+            </div>
+        </div>
 
-  // 更新本地数据
-  votesData[selectedOption] = (votesData[selectedOption] || 0) + 1;
+        <!-- 投票成功页面 -->
+        <div id="successPage" class="success-page">
+            <div class="back-link" onclick="backToVote()">← 返回投票</div>
+            <div class="success-icon">🎉</div>
+            <div class="success-title">投票成功！</div>
+            <div class="success-subtitle">感谢参与，已记录你的选择</div>
+            
+            <div class="success-choice">
+                <div class="success-choice-icon" id="successChoiceIcon">🍜</div>
+                <div class="success-choice-name" id="successChoiceName">--</div>
+            </div>
 
-  // 写入云端
-  const success = await writeToCloud({ votes: votesData });
+            <div class="success-stats">
+                <div class="success-stat">
+                    <div class="success-stat-icon">👥</div>
+                    <div class="success-stat-label">参与人数</div>
+                    <div class="success-stat-value" id="successVoterCount">0 人</div>
+                </div>
+                <div class="success-stat-divider"></div>
+                <div class="success-stat">
+                    <div class="success-stat-icon">🏆</div>
+                    <div class="success-stat-label">当前领先</div>
+                    <div class="success-stat-value" id="successLeader">--</div>
+                </div>
+            </div>
 
-  if (success) {
-    localStorage.setItem('lunch_voter_id', myVoterId);
-    localStorage.setItem('lunch_my_choice', myChoice);
+            <div class="vote-result-preview">
+                <div class="result-preview-title">当前投票结果 Top 3</div>
+                <div id="resultPreviewBars"></div>
+            </div>
 
-    updateVotedUI();
-    showToast('✅ 投票成功！');
-    updateStats();
-    renderOptions(false);
-    checkAndShowResult();
-  } else {
-    btn.disabled = false;
-    btn.textContent = '确认投票 ✨';
-    showToast('❌ 提交失败，请重试');
-    myChoice = null;
-    myVoterId = null;
-  }
-}
+            <div class="actions">
+                <button class="btn btn-secondary" onclick="resetVote()">新建投票</button>
+            </div>
+        </div>
+    </div>
 
-function updateVotedUI() {
-  const opt = OPTIONS.find(o => o.id === myChoice);
-  document.getElementById('voteBtn').textContent = '已投票 ✓';
-  document.getElementById('voteBtn').classList.add('voted');
-  document.getElementById('myVoteName').textContent = opt ? `${opt.emoji} ${opt.name}` : '';
-  document.getElementById('votedInfo').classList.add('show');
-}
+    <div class="toast" id="toast"></div>
 
-// ========== 修改投票 ==========
-async function changeVote() {
-  if (!myChoice || !myVoterId) return;
+    <script>
+        // ============ 配置区 ============
+        // ⚠️ 请替换为你的腾讯云云开发环境ID
+        const TCB_ENV_ID = 'whatever-d8gwkujxa44982f09';
+        // ==================
 
-  // 减去旧票
-  votesData[myChoice] = Math.max((votesData[myChoice] || 0) - 1, 0);
-  
-  const success = await writeToCloud({ votes: votesData });
+        // 菜品选项
+        const OPTIONS = [
+            { id: 'baman', name: '霸蛮', icon: '🌶️', color: '#FF6B6B' },
+            { id: 'chuanchuan', name: '串串', icon: '🍢', color: '#FFA502' },
+            { id: 'xiaoman', name: '小满手工粉', icon: '🍜', color: '#70A1FF' },
+            { id: 'chaocai', name: '炒菜', icon: '🥘', color: '#7BED9F' },
+            { id: 'banmian', name: '板面', icon: '🍝', color: '#5352ED' },
+            { id: 'niubanjin', name: '牛半斤', icon: '🥩', color: '#FF4757' },
+            { id: 'malatang', name: '麻辣烫', icon: '🥘', color: '#FF6348' }
+        ];
 
-  if (success) {
-    localStorage.removeItem('lunch_voter_id');
-    localStorage.removeItem('lunch_my_choice');
-    myChoice = null;
-    myVoterId = null;
-    selectedOption = null;
+        // 全局状态
+        let currentRoom = null;
+        let myVote = null;
+        let selectedOption = null;
+        let userId = localStorage.getItem('vote_user_id') || Math.random().toString(36).substring(2, 10);
+        let cloudBase = null;
+        let db = null;
+        let unsubscribe = null;
 
-    document.getElementById('voteBtn').textContent = '确认投票 ✨';
-    document.getElementById('voteBtn').classList.remove('voted');
-    document.getElementById('voteBtn').disabled = false;
-    document.getElementById('votedInfo').classList.remove('show');
+        // 初始化
+        async function init() {
+            localStorage.setItem('vote_user_id', userId);
+            
+            try {
+                // 初始化腾讯云云开发
+                cloudBase = cloudbase.init({
+                    env: TCB_ENV_ID
+                });
+                
+                // 匿名登录
+                await cloudBase.auth({ persistence: 'local' }).anonymousAuthProvider().signIn();
+                
+                // 获取数据库
+                db = cloudBase.database();
+                
+                // 隐藏加载，显示投票页
+                document.getElementById('initLoading').classList.add('hidden');
+                document.getElementById('votePage').classList.remove('hidden');
+                
+                // 从 URL 或本地存储获取房间号
+                const urlParams = new URLSearchParams(window.location.search);
+                const roomFromUrl = urlParams.get('room');
+                
+                if (roomFromUrl) {
+                    joinRoom(roomFromUrl);
+                } else {
+                    const savedRoom = localStorage.getItem('vote_current_room');
+                    if (savedRoom) {
+                        joinRoom(savedRoom);
+                    } else {
+                        createRoom();
+                    }
+                }
+            } catch (err) {
+                console.error('初始化失败:', err);
+                document.querySelector('.init-loading p').textContent = '连接失败，请刷新重试';
+            }
+        }
 
-    renderOptions(false);
-    updateStats();
-    showToast('✅ 已撤销，可以重新选择');
-  } else {
-    showToast('❌ 操作失败，请重试');
-  }
-}
+        // 生成唯一ID
+        function generateId() {
+            return Math.random().toString(36).substring(2, 8).toUpperCase();
+        }
 
-// ========== 清空所有投票 ==========
-async function resetAllVotes() {
-  if (!confirm('⚠️ 确定要清空所有投票吗？这将重置所有数据！')) return;
-  
-  votesData = {};
-  resultShown = false;
-  
-  const success = await writeToCloud(INITIAL_DATA);
-  
-  if (success) {
-    // 清除本地记录
-    localStorage.removeItem('lunch_voter_id');
-    localStorage.removeItem('lunch_my_choice');
-    myChoice = null;
-    myVoterId = null;
-    selectedOption = null;
-    
-    document.getElementById('voteBtn').textContent = '确认投票 ✨';
-    document.getElementById('voteBtn').classList.remove('voted');
-    document.getElementById('voteBtn').disabled = false;
-    document.getElementById('votedInfo').classList.remove('show');
-    
-    renderOptions(false);
-    updateStats();
-    showToast('🗑️ 所有投票已清空');
-  } else {
-    showToast('❌ 清空失败，请重试');
-  }
-}
+        // 创建房间
+        async function createRoom() {
+            currentRoom = generateId();
+            localStorage.setItem('vote_current_room', currentRoom);
+            
+            try {
+                // 创建房间文档
+                await db.collection('rooms').add({
+                    data: {
+                        room_id: currentRoom,
+                        created_at: new Date().getTime(),
+                        votes: {}
+                    }
+                });
+            } catch (err) {
+                console.error('创建房间失败:', err);
+            }
+            
+            myVote = null;
+            selectedOption = null;
+            showVotePage();
+            updateUI();
+            subscribeRoom();
+            showToast('投票已开始！');
+        }
 
-// ========== 检查本地投票 ==========
-function checkLocalVote() {
-  const savedId = localStorage.getItem('lunch_voter_id');
-  const savedChoice = localStorage.getItem('lunch_my_choice');
+        // 加入房间
+        async function joinRoom(roomId) {
+            currentRoom = roomId;
+            localStorage.setItem('vote_current_room', roomId);
+            
+            // 检查本地是否投过
+            const localVote = localStorage.getItem(`vote_${currentRoom}_${userId}`);
+            if (localVote) {
+                myVote = localVote;
+                selectedOption = localVote;
+            }
+            
+            showVotePage();
+            await updateUI();
+            subscribeRoom();
+        }
 
-  if (savedId && savedChoice) {
-    myVoterId = savedId;
-    myChoice = savedChoice;
-    selectedOption = savedChoice;
-    updateVotedUI();
-  }
-}
+        // 订阅房间数据变化（实时同步）
+        function subscribeRoom() {
+            if (unsubscribe) unsubscribe();
+            
+            const cmd = db.command;
+            
+            // 监听 rooms 集合中 room_id 匹配的数据
+            unsubscribe = db.collection('rooms')
+                .where({ room_id: currentRoom })
+                .watch({
+                    onChange: (snapshot) => {
+                        if (snapshot.docChanges.length > 0) {
+                            const doc = snapshot.docChanges[0].doc;
+                            handleDataChange(doc);
+                        }
+                    },
+                    onError: (err) => {
+                        console.error('监听失败:', err);
+                    }
+                });
+        }
 
-// ========== 统计 & 结果 ==========
-function updateStats() {
-  const total = Object.values(votesData).reduce((a, b) => a + b, 0);
-  document.getElementById('totalVotes').textContent = total;
-  document.getElementById('totalParticipants').textContent = total;
-}
+        // 处理数据变化
+        function handleDataChange(doc) {
+            if (!doc) return;
+            
+            const votes = doc.votes || {};
+            
+            // 更新我的投票状态
+            if (votes[userId] && votes[userId] !== myVote) {
+                myVote = votes[userId];
+                selectedOption = myVote;
+            } else if (!votes[userId] && myVote) {
+                myVote = null;
+                selectedOption = null;
+            }
+            
+            // 更新UI
+            const successPage = document.getElementById('successPage');
+            if (successPage.classList.contains('show')) {
+                updateSuccessStats();
+                updateResultPreview();
+            } else {
+                updateUI();
+                showVotePage();
+            }
+        }
 
-function checkAndShowResult() {
-  if (resultShown) return;
-  const total = Object.values(votesData).reduce((a, b) => a + b, 0);
-  if (total >= 3) {
-    resultShown = true;
-    setTimeout(() => showResult(), 800);
-  }
-}
+        // 选择选项
+        function selectOption(optionId) {
+            if (myVote) return;
+            selectedOption = optionId;
+            
+            const container = document.getElementById('optionsContainer');
+            container.querySelectorAll('.option-card').forEach(card => {
+                card.classList.toggle('selected', card.dataset.optionId === optionId);
+            });
+        }
 
-function showResult() {
-  const total = Object.values(votesData).reduce((a, b) => a + b, 0);
-  let winnerId = null, maxCount = 0;
-  for (const [id, count] of Object.entries(votesData)) {
-    if (count > maxCount) { maxCount = count; winnerId = id; }
-  }
-  const winner = OPTIONS.find(o => o.id === winnerId);
-  const pct = total > 0 ? ((maxCount / total) * 100).toFixed(0) : 0;
+        // 确认投票
+        async function confirmVote() {
+            if (myVote) return;
+            if (!selectedOption) {
+                showToast('请先选择一个选项～');
+                return;
+            }
+            
+            try {
+                // 先查当前数据
+                const res = await db.collection('rooms')
+                    .where({ room_id: currentRoom })
+                    .get();
+                
+                const currentVotes = res.data[0]?.votes || {};
+                
+                // 移除旧票
+                if (myVote && currentVotes[userId]) {
+                    delete currentVotes[userId];
+                }
+                
+                // 添加新票
+                currentVotes[userId] = selectedOption;
+                
+                // 更新数据库
+                await db.collection('rooms')
+                    .where({ room_id: currentRoom })
+                    .update({
+                        votes: currentVotes
+                    });
+                
+                // 保存本地记录
+                localStorage.setItem(`vote_${currentRoom}_${userId}`, selectedOption);
+                myVote = selectedOption;
+                
+                showSuccessPage();
+            } catch (err) {
+                console.error('投票失败:', err);
+                showToast('投票失败，请重试');
+            }
+        }
 
-  document.getElementById('resultWinnerName').textContent = 
-    winner ? `${winner.emoji} ${winner.name}` : '暂无';
-  document.getElementById('resultDetail').innerHTML = 
-    `获得 <strong>${maxCount}</strong> 票（占 ${pct}%）<br>共 ${total} 人参与投票`;
-  
-  document.getElementById('resultOverlay').classList.add('show');
-  fireworks();
-}
+        // 返回投票页
+        function backToVote() {
+            const successPage = document.getElementById('successPage');
+            if (successPage.classList.contains('show')) {
+                myVote = null;
+                selectedOption = null;
+                showVotePage();
+                updateUI();
+            }
+        }
 
-function closeResult(e) { if (e.target.id === 'resultOverlay') closeResultDirect(); }
-function closeResultDirect() { document.getElementById('resultOverlay').classList.remove('show'); }
+        // 新建投票
+        function resetVote() {
+            if (unsubscribe) unsubscribe();
+            localStorage.removeItem('vote_current_room');
+            location.reload();
+        }
 
-// ========== 工具函数 ==========
-function generateId() {
-  return 'v_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 8);
-}
+        // 显示投票页面
+        function showVotePage() {
+            document.getElementById('votePage').classList.remove('hidden');
+            document.getElementById('successPage').classList.remove('show');
+            
+            const btn = document.getElementById('confirmBtn');
+            if (myVote) {
+                btn.textContent = '已投票 ✓';
+                btn.style.opacity = '0.6';
+            } else {
+                btn.textContent = '确认投票 ✨';
+                btn.style.opacity = '1';
+            }
+        }
 
-function updateOnlineStatus(status, text) {
-  const dot = document.getElementById('onlineDot');
-  dot.className = 'online-dot ' + status;
-  document.getElementById('onlineStatus').textContent = text;
-}
+        // 显示成功页面
+        function showSuccessPage() {
+            document.getElementById('votePage').classList.add('hidden');
+            document.getElementById('successPage').classList.add('show');
+            
+            const choice = OPTIONS.find(o => o.id === myVote);
+            if (choice) {
+                document.getElementById('successChoiceIcon').textContent = choice.icon;
+                document.getElementById('successChoiceName').textContent = choice.name;
+            }
+            
+            updateSuccessStats();
+            updateResultPreview();
+        }
 
-function showToast(msg) {
-  const toast = document.getElementById('toast');
-  toast.textContent = msg;
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 2200);
-}
+        // 更新成功页统计
+        function updateSuccessStats() {
+            const data = getRoomData();
+            if (!data) return;
+            
+            const votes = data.votes || {};
+            const voterCount = Object.keys(votes).length;
+            document.getElementById('successVoterCount').textContent = `${voterCount} 人`;
+            
+            const sorted = Object.entries(votes).sort((a, b) => b[1] - a[1]);
+            let leaderName = '--';
+            if (sorted.length > 0) {
+                const leader = OPTIONS.find(o => o.id === sorted[0][0]);
+                leaderName = leader ? leader.name : sorted[0][0];
+            }
+            document.getElementById('successLeader').textContent = leaderName;
+        }
 
-function fireworks() {
-  const container = document.getElementById('fireworks');
-  container.classList.add('show'); container.innerHTML = '';
-  const colors = ['#ff6b6b','#feca57','#48dbfb','#ff9ff3','#54a0ff','#5f27cd','#00d2d3','#1dd1a1'];
-  const cx = window.innerWidth / 2, cy = window.innerHeight / 2.5;
-  for (let i = 0; i < 36; i++) {
-    const p = document.createElement('div');
-    p.className = 'particle';
-    p.style.cssText = `position:absolute;width:${5+Math.random()*6}px;height:${5+Math.random()*6}px;background:${colors[i%colors.length]};left:${cx}px;top:${cy}px;border-radius:50%;pointer-events:none;`;
-    const angle = (Math.PI * 2 * i) / 36 + (Math.random()-0.5)*0.3;
-    const dist = 70 + Math.random() * 160;
-    p.animate([
-      { transform:'translate(0,0) scale(1)', opacity: 1 },
-      { transform:`translate(${Math.cos(angle)*dist}px,${Math.sin(angle)*dist}px) scale(0)`, opacity: 0 }
-    ], { duration: 800+Math.random()*400, easing: 'ease-out' });
-    container.appendChild(p);
-  }
-  setTimeout(() => container.classList.remove('show'), 1400);
-}
+        // 更新结果预览
+        function updateResultPreview() {
+            const data = getRoomData();
+            if (!data) return;
+            
+            const votes = data.votes || {};
+            const totalVotes = Object.values(votes).length;
+            const sorted = Object.entries(votes).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            const maxVotes = sorted.length > 0 ? sorted[0][1] : 1;
+            
+            const html = sorted.map(([userIdKey, optionId]) => {
+                const option = OPTIONS.find(o => o.id === optionId);
+                const count = Object.values(votes).filter(v => v === optionId).length;
+                const percentage = maxVotes > 0 ? (count / maxVotes * 100) : 0;
+                const isMyChoice = optionId === myVote;
+                
+                return `
+                    <div class="result-bar">
+                        <div class="result-bar-name">${option ? option.name : optionId} ${isMyChoice ? '✓' : ''}</div>
+                        <div class="result-bar-track">
+                            <div class="result-bar-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <div class="result-bar-count">${count}</div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('resultPreviewBars').innerHTML = html || '<div style="color: #999; font-size: 13px;">暂无投票数据</div>';
+        }
 
-// shake动画
-document.head.insertAdjacentHTML('beforeend',
-  '<style>@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}</style>');
+        // 从本地缓存获取房间数据
+        function getRoomData() {
+            const key = `room_cache_${currentRoom}`;
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : null;
+        }
 
-// 启动
-init();
-</script>
+        // 缓存房间数据
+        function cacheRoomData(data) {
+            const key = `room_cache_${currentRoom}`;
+            localStorage.setItem(key, JSON.stringify(data));
+        }
 
+        // 更新UI
+        async function updateUI() {
+            document.getElementById('roomId').textContent = currentRoom || '----';
+            
+            try {
+                const res = await db.collection('rooms')
+                    .where({ room_id: currentRoom })
+                    .get();
+                
+                const doc = res.data[0];
+                if (!doc) return;
+                
+                const votes = doc.votes || {};
+                
+                // 缓存数据
+                cacheRoomData({ votes });
+                
+                // 计算统计
+                const voterCount = Object.keys(votes).length;
+                const totalVotes = Object.values(votes).length;
+                
+                document.getElementById('voterCount').textContent = `${voterCount} 人参与`;
+                document.getElementById('totalVotes').textContent = `${totalVotes} 票`;
+                
+                // 计算每个选项的票数
+                const voteCounts = {};
+                OPTIONS.forEach(o => voteCounts[o.id] = 0);
+                Object.values(votes).forEach(v => { if (voteCounts[v] !== undefined) voteCounts[v]++; });
+                
+                const maxVotes = Math.max(...Object.values(voteCounts), 0);
+                const container = document.getElementById('optionsContainer');
+                
+                // 首次渲染
+                if (container.children.length === 0) {
+                    container.innerHTML = OPTIONS.map(option => {
+                        const count = voteCounts[option.id];
+                        const pct = totalVotes > 0 ? (count / totalVotes * 100) : 0;
+                        const isSelected = myVote === option.id;
+                        const isWinner = count > 0 && count === maxVotes && maxVotes > 0;
+                        
+                        return `
+                            <div class="option-card initial ${isSelected ? 'selected' : ''} ${isWinner ? 'winner' : ''}"
+                                 data-option-id="${option.id}"
+                                 onclick="selectOption('${option.id}')">
+                                <div class="progress-bar" style="width: ${pct}%"></div>
+                                ${isWinner ? '<div class="winner-badge">🏆 领先</div>' : ''}
+                                <div class="option-main">
+                                    <div class="option-icon" style="background: ${option.color}20;">${option.icon}</div>
+                                    <div class="option-info">
+                                        <div class="option-name">${option.name}</div>
+                                        <div class="option-votes" data-votes-for="${option.id}">${count} 票 · ${pct.toFixed(1)}%</div>
+                                    </div>
+                                    <div class="option-check"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    // 更新数据
+                    OPTIONS.forEach(option => {
+                        const card = container.querySelector(`[data-option-id="${option.id}"]`);
+                        if (!card) return;
+                        
+                        const count = voteCounts[option.id];
+                        const pct = totalVotes > 0 ? (count / totalVotes * 100) : 0;
+                        const isSelected = myVote === option.id;
+                        const isWinner = count > 0 && count === maxVotes && maxVotes > 0;
+                        
+                        const bar = card.querySelector('.progress-bar');
+                        if (bar) bar.style.width = `${pct}%`;
+                        
+                        const votesText = card.querySelector(`[data-votes-for="${option.id}"]`);
+                        if (votesText) votesText.textContent = `${count} 票 · ${pct.toFixed(1)}%`;
+                        
+                        card.classList.toggle('selected', isSelected);
+                        card.classList.toggle('winner', isWinner);
+                    });
+                }
+                
+                // 同步确认按钮
+                showVotePage();
+                
+            } catch (err) {
+                console.error('获取数据失败:', err);
+            }
+        }
+
+        // 复制房间链接
+        function copyRoomId() {
+            if (!currentRoom) return;
+            
+            const shareUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoom}`;
+            
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    showToast('链接已复制！发给朋友即可邀请投票');
+                });
+            } else {
+                const input = document.createElement('input');
+                input.value = shareUrl;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+                showToast('链接已复制！发给朋友即可邀请投票');
+            }
+        }
+
+        // 显示提示
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        // 启动
+        init();
+    </script>
 </body>
 </html>
