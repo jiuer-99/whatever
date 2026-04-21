@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🍜 中午吃什么 - 投票</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- 腾讯云云开发SDK -->
+    <script src="https://imgcache.qq.com/qcloud/cloudbase-js-sdk/2.1.0/cloudbase.full.js"></script>
+    <style>
+        :root {
+            --primary: #FF6B35;
+            --primary-dark: #E55A2B;
+            --secondary: #F7C59F;
+            --bg: #FFF8F3;
+            --card-bg: #FFFFFF;
+            --text: #2D3436;
+            --text-light: #636E72;
+            --border: #FFE5D9;
+            --shadow: 0 4px 20px rgba(255, 107, 53, 0.15);
+            --shadow-hover: 0 8px 30px rgba(255, 107, 53, 0.25);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--bg) 0%, #FFF0E8 100%);
+            min-height: 100vh;
+            color: var(--text);
+            padding: 20px 16px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .container { max-width: 375px; margin: 0 auto; }
+
+        /* Loading */
+        .init-loading {
+            text-align: center;
+            padding: 60px 20px;
+        }
+        .init-loading .spinner {
+            width: 40px; height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .init-loading p { color: var(--text-light); font-size: 14px; }
+
+        /* Header */
+        .header { text-align: center; margin-bottom: 24px; padding-top: 10px; }
+        .header-icon { font-size: 48px; margin-bottom: 8px; animation: bounce 2s infinite; }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+        .header h1 { font-size: 24px; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+        .header p { font-size: 14px; color: var(--text-light); }
+
+        /* Room Card */
+        .room-card {
+            display: none;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 20px;
+            color: white;
+            box-shadow: var(--shadow);
+        }
+        .room-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .room-label { font-size: 12px; opacity: 0.9; }
+        .room-id { font-size: 20px; font-weight: 700; letter-spacing: 2px; }
+        .copy-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .copy-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.3); }
+        .room-stats { display: flex; gap: 20px; font-size: 13px; }
+        .stat { display: flex; align-items: center; gap: 6px; }
+
+        /* Options List */
+        .options-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        .option-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+        .option-card.initial { animation: fadeIn 0.4s ease backwards; }
+        .option-card:nth-child(1).initial { animation-delay: 0.05s; }
+        .option-card:nth-child(2).initial { animation-delay: 0.1s; }
+        .option-card:nth-child(3).initial { animation-delay: 0.15s; }
+        .option-card:nth-child(4).initial { animation-delay: 0.2s; }
+        .option-card:nth-child(5).initial { animation-delay: 0.25s; }
+        .option-card:nth-child(6).initial { animation-delay: 0.3s; }
+        .option-card:nth-child(7).initial { animation-delay: 0.35s; }
+        .option-card:active { transform: scale(0.98); }
+        .option-card.selected { border-color: var(--primary); box-shadow: var(--shadow); }
+        .option-card.winner { background: linear-gradient(135deg, #FFF5F0 0%, #FFEEE5 100%); border-color: var(--primary); }
+        .option-main { display: flex; align-items: center; gap: 12px; position: relative; z-index: 2; }
+        .option-icon {
+            width: 48px; height: 48px;
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px;
+            background: var(--bg);
+            flex-shrink: 0;
+        }
+        .option-info { flex: 1; }
+        .option-name { font-size: 16px; font-weight: 600; margin-bottom: 2px; }
+        .option-votes { font-size: 13px; color: var(--text-light); }
+        .option-check {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            border: 2px solid #DDD;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+        .option-card.selected .option-check {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        .option-card.selected .option-check::after {
+            content: '✓'; color: white; font-size: 14px; font-weight: bold;
+        }
+        .progress-bar {
+            position: absolute; left: 0; top: 0; bottom: 0;
+            background: linear-gradient(90deg, rgba(255,107,53,0.08) 0%, rgba(255,107,53,0.15) 100%);
+            border-radius: 14px;
+            transition: width 0.5s ease;
+            z-index: 1;
+        }
+        .winner-badge {
+            position: absolute; top: 8px; right: 8px;
+            background: var(--primary); color: white;
+            font-size: 10px; padding: 3px 8px;
+            border-radius: 10px; font-weight: 600;
+            z-index: 3;
+        }
+
+        /* Actions */
+        .actions { display: flex; gap: 12px; margin-bottom: 20px; }
+        .btn {
+            flex: 1; padding: 14px; border-radius: 12px;
+            border: none; font-size: 15px; font-weight: 600;
+            cursor: pointer; transition: all 0.3s; font-family: inherit;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white; box-shadow: var(--shadow);
+        }
+        .btn-primary:active { transform: scale(0.98); box-shadow: var(--shadow-hover); }
+        .btn-secondary {
+            background: white; color: var(--text);
+            border: 1px solid var(--border);
+        }
+        .btn-secondary:active { background: var(--bg); }
+
+        /* Success Page */
+        .success-page { display: none; text-align: center; padding: 40px 20px; animation: fadeIn 0.5s ease; }
+        .success-page.show { display: block; }
+        .success-icon {
+            width: 100px; height: 100px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 24px; font-size: 50px;
+            box-shadow: var(--shadow);
+            animation: scaleIn 0.5s ease;
+        }
+        @keyframes scaleIn {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .success-title { font-size: 24px; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+        .success-subtitle { font-size: 15px; color: var(--text-light); margin-bottom: 32px; }
+        .success-choice {
+            background: var(--card-bg); border-radius: 16px;
+            padding: 20px; margin-bottom: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .success-choice-icon { font-size: 48px; margin-bottom: 8px; }
+        .success-choice-name { font-size: 20px; font-weight: 600; color: var(--text); }
+
+        /* Success Stats */
+        .success-stats {
+            display: flex; align-items: center; justify-content: center; gap: 24px;
+            background: var(--card-bg); border-radius: 16px;
+            padding: 20px; margin-bottom: 24px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        }
+        .success-stat { text-align: center; flex: 1; }
+        .success-stat-icon { font-size: 24px; margin-bottom: 6px; }
+        .success-stat-label { font-size: 12px; color: var(--text-light); margin-bottom: 4px; }
+        .success-stat-value { font-size: 18px; font-weight: 700; color: var(--primary); }
+        .success-stat-divider { width: 1px; height: 50px; background: var(--border); }
+
+        /* Vote Result Preview */
+        .vote-result-preview {
+            background: linear-gradient(135deg, #FFF5F0 0%, #FFEEE5 100%);
+            border-radius: 12px; padding: 16px; margin-bottom: 24px;
+        }
+        .result-preview-title { font-size: 13px; color: var(--text-light); margin-bottom: 12px; }
+        .result-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+        .result-bar:last-child { margin-bottom: 0; }
+        .result-bar-name { font-size: 13px; width: 80px; text-align: left; }
+        .result-bar-track {
+            flex: 1; height: 8px;
+            background: rgba(255,107,53,0.1);
+            border-radius: 4px; overflow: hidden;
+        }
+        .result-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        .result-bar-count { font-size: 12px; color: var(--text-light); width: 30px; text-align: right; }
+
+        /* Back link */
+        .back-link {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 14px; color: var(--text-light);
+            cursor: pointer; margin-bottom: 16px; padding: 4px 0;
+        }
+        .back-link:active { opacity: 0.7; }
+
+        /* Toast */
+        .toast {
+            position: fixed; bottom: 100px; left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(45, 52, 54, 0.95);
+            color: white; padding: 12px 24px;
+            border-radius: 24px; font-size: 14px;
+            opacity: 0; transition: all 0.3s;
+            z-index: 1000; white-space: nowrap;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+        /* Animations */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 初始化加载中 -->
+        <div id="initLoading" class="init-loading">
+            <div class="spinner"></div>
+            <p>正在连接服务器...</p>
+        </div>
+
+        <!-- 投票页面 -->
+        <div id="votePage" class="hidden">
+            <div class="header">
+                <div class="header-icon">🍜</div>
+                <h1>中午吃什么</h1>
+                <p>单选投票 · 实时同步</p>
+            </div>
+
+            <div class="room-card">
+                <div class="room-header">
+                    <div>
+                        <div class="room-label">房间号</div>
+                        <div class="room-id" id="roomId">----</div>
+                    </div>
+                    <button class="copy-btn" onclick="copyRoomId()">复制</button>
+                </div>
+                <div class="room-stats">
+                    <div class="stat"><span>👥</span><span id="voterCount">0 人参与</span></div>
+                    <div class="stat"><span>🗳️</span><span id="totalVotes">0 票</span></div>
+                </div>
+            </div>
+
+            <div id="optionsContainer" class="options-list"></div>
+
+            <div class="actions">
+                <button class="btn btn-secondary" onclick="resetVote()">新建投票</button>
+                <button class="btn btn-primary" id="confirmBtn" onclick="confirmVote()">确认投票 ✨</button>
+            </div>
+        </div>
+
+        <!-- 投票成功页面 -->
+        <div id="successPage" class="success-page">
+            <div class="back-link" onclick="backToVote()">← 返回投票</div>
+            <div class="success-icon">🎉</div>
+            <div class="success-title">投票成功！</div>
+            <div class="success-subtitle">感谢参与，已记录你的选择</div>
+            
+            <div class="success-choice">
+                <div class="success-choice-icon" id="successChoiceIcon">🍜</div>
+                <div class="success-choice-name" id="successChoiceName">--</div>
+            </div>
+
+            <div class="success-stats">
+                <div class="success-stat">
+                    <div class="success-stat-icon">👥</div>
+                    <div class="success-stat-label">参与人数</div>
+                    <div class="success-stat-value" id="successVoterCount">0 人</div>
+                </div>
+                <div class="success-stat-divider"></div>
+                <div class="success-stat">
+                    <div class="success-stat-icon">🏆</div>
+                    <div class="success-stat-label">当前领先</div>
+                    <div class="success-stat-value" id="successLeader">--</div>
+                </div>
+            </div>
+
+            <div class="vote-result-preview">
+                <div class="result-preview-title">当前投票结果 Top 3</div>
+                <div id="resultPreviewBars"></div>
+            </div>
+
+            <div class="actions">
+                <button class="btn btn-secondary" onclick="resetVote()">新建投票</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ============ 配置区 ============
+        // ⚠️ 请替换为你的腾讯云云开发环境ID
+        const TCB_ENV_ID = 'whatever-d8gwkujxa44982f09';
+        // ==================
+
+        // 菜品选项
+        const OPTIONS = [
+            { id: 'baman', name: '霸蛮', icon: '🌶️', color: '#FF6B6B' },
+            { id: 'chuanchuan', name: '串串', icon: '🍢', color: '#FFA502' },
+            { id: 'xiaoman', name: '小满手工粉', icon: '🍜', color: '#70A1FF' },
+            { id: 'chaocai', name: '炒菜', icon: '🥘', color: '#7BED9F' },
+            { id: 'banmian', name: '板面', icon: '🍝', color: '#5352ED' },
+            { id: 'niubanjin', name: '牛半斤', icon: '🥩', color: '#FF4757' },
+            { id: 'malatang', name: '麻辣烫', icon: '🥘', color: '#FF6348' }
+        ];
+
+        // 全局状态
+        let currentRoom = null;
+        let myVote = null;
+        let selectedOption = null;
+        let userId = localStorage.getItem('vote_user_id') || Math.random().toString(36).substring(2, 10);
+        let cloudBase = null;
+        let db = null;
+        let unsubscribe = null;
+
+        // 初始化
+        async function init() {
+            localStorage.setItem('vote_user_id', userId);
+            
+            try {
+                // 初始化腾讯云云开发
+                cloudBase = cloudbase.init({
+                    env: TCB_ENV_ID
+                });
+                
+                // 匿名登录
+                await cloudBase.auth({ persistence: 'local' }).anonymousAuthProvider().signIn();
+                
+                // 获取数据库
+                db = cloudBase.database();
+                
+                // 隐藏加载，显示投票页
+                document.getElementById('initLoading').classList.add('hidden');
+                document.getElementById('votePage').classList.remove('hidden');
+                
+                // 从 URL 或本地存储获取房间号
+                const urlParams = new URLSearchParams(window.location.search);
+                const roomFromUrl = urlParams.get('room');
+                
+                if (roomFromUrl) {
+                    joinRoom(roomFromUrl);
+                } else {
+                    const savedRoom = localStorage.getItem('vote_current_room');
+                    if (savedRoom) {
+                        joinRoom(savedRoom);
+                    } else {
+                        createRoom();
+                    }
+                }
+            } catch (err) {
+                console.error('初始化失败:', err);
+                document.querySelector('.init-loading p').textContent = '连接失败，请刷新重试';
+            }
+        }
+
+        // 生成唯一ID
+        function generateId() {
+            return Math.random().toString(36).substring(2, 8).toUpperCase();
+        }
+
+        // 创建房间
+        async function createRoom() {
+            currentRoom = generateId();
+            localStorage.setItem('vote_current_room', currentRoom);
+            
+            try {
+                // 创建房间文档
+                await db.collection('rooms').add({
+                    data: {
+                        room_id: currentRoom,
+                        created_at: new Date().getTime(),
+                        votes: {}
+                    }
+                });
+            } catch (err) {
+                console.error('创建房间失败:', err);
+            }
+            
+            myVote = null;
+            selectedOption = null;
+            showVotePage();
+            updateUI();
+            subscribeRoom();
+            showToast('投票已开始！');
+        }
+
+        // 加入房间
+        async function joinRoom(roomId) {
+            currentRoom = roomId;
+            localStorage.setItem('vote_current_room', roomId);
+            
+            // 检查本地是否投过
+            const localVote = localStorage.getItem(`vote_${currentRoom}_${userId}`);
+            if (localVote) {
+                myVote = localVote;
+                selectedOption = localVote;
+            }
+            
+            showVotePage();
+            await updateUI();
+            subscribeRoom();
+        }
+
+        // 订阅房间数据变化（实时同步）
+        function subscribeRoom() {
+            if (unsubscribe) unsubscribe();
+            
+            const cmd = db.command;
+            
+            // 监听 rooms 集合中 room_id 匹配的数据
+            unsubscribe = db.collection('rooms')
+                .where({ room_id: currentRoom })
+                .watch({
+                    onChange: (snapshot) => {
+                        if (snapshot.docChanges.length > 0) {
+                            const doc = snapshot.docChanges[0].doc;
+                            handleDataChange(doc);
+                        }
+                    },
+                    onError: (err) => {
+                        console.error('监听失败:', err);
+                    }
+                });
+        }
+
+        // 处理数据变化
+        function handleDataChange(doc) {
+            if (!doc) return;
+            
+            const votes = doc.votes || {};
+            
+            // 更新我的投票状态
+            if (votes[userId] && votes[userId] !== myVote) {
+                myVote = votes[userId];
+                selectedOption = myVote;
+            } else if (!votes[userId] && myVote) {
+                myVote = null;
+                selectedOption = null;
+            }
+            
+            // 更新UI
+            const successPage = document.getElementById('successPage');
+            if (successPage.classList.contains('show')) {
+                updateSuccessStats();
+                updateResultPreview();
+            } else {
+                updateUI();
+                showVotePage();
+            }
+        }
+
+        // 选择选项
+        function selectOption(optionId) {
+            if (myVote) return;
+            selectedOption = optionId;
+            
+            const container = document.getElementById('optionsContainer');
+            container.querySelectorAll('.option-card').forEach(card => {
+                card.classList.toggle('selected', card.dataset.optionId === optionId);
+            });
+        }
+
+        // 确认投票
+        async function confirmVote() {
+            if (myVote) return;
+            if (!selectedOption) {
+                showToast('请先选择一个选项～');
+                return;
+            }
+            
+            try {
+                // 先查当前数据
+                const res = await db.collection('rooms')
+                    .where({ room_id: currentRoom })
+                    .get();
+                
+                const currentVotes = res.data[0]?.votes || {};
+                
+                // 移除旧票
+                if (myVote && currentVotes[userId]) {
+                    delete currentVotes[userId];
+                }
+                
+                // 添加新票
+                currentVotes[userId] = selectedOption;
+                
+                // 更新数据库
+                await db.collection('rooms')
+                    .where({ room_id: currentRoom })
+                    .update({
+                        votes: currentVotes
+                    });
+                
+                // 保存本地记录
+                localStorage.setItem(`vote_${currentRoom}_${userId}`, selectedOption);
+                myVote = selectedOption;
+                
+                showSuccessPage();
+            } catch (err) {
+                console.error('投票失败:', err);
+                showToast('投票失败，请重试');
+            }
+        }
+
+        // 返回投票页
+        function backToVote() {
+            const successPage = document.getElementById('successPage');
+            if (successPage.classList.contains('show')) {
+                myVote = null;
+                selectedOption = null;
+                showVotePage();
+                updateUI();
+            }
+        }
+
+        // 新建投票
+        function resetVote() {
+            if (unsubscribe) unsubscribe();
+            localStorage.removeItem('vote_current_room');
+            location.reload();
+        }
+
+        // 显示投票页面
+        function showVotePage() {
+            document.getElementById('votePage').classList.remove('hidden');
+            document.getElementById('successPage').classList.remove('show');
+            
+            const btn = document.getElementById('confirmBtn');
+            if (myVote) {
+                btn.textContent = '已投票 ✓';
+                btn.style.opacity = '0.6';
+            } else {
+                btn.textContent = '确认投票 ✨';
+                btn.style.opacity = '1';
+            }
+        }
+
+        // 显示成功页面
+        function showSuccessPage() {
+            document.getElementById('votePage').classList.add('hidden');
+            document.getElementById('successPage').classList.add('show');
+            
+            const choice = OPTIONS.find(o => o.id === myVote);
+            if (choice) {
+                document.getElementById('successChoiceIcon').textContent = choice.icon;
+                document.getElementById('successChoiceName').textContent = choice.name;
+            }
+            
+            updateSuccessStats();
+            updateResultPreview();
+        }
+
+        // 更新成功页统计
+        function updateSuccessStats() {
+            const data = getRoomData();
+            if (!data) return;
+            
+            const votes = data.votes || {};
+            const voterCount = Object.keys(votes).length;
+            document.getElementById('successVoterCount').textContent = `${voterCount} 人`;
+            
+            const sorted = Object.entries(votes).sort((a, b) => b[1] - a[1]);
+            let leaderName = '--';
+            if (sorted.length > 0) {
+                const leader = OPTIONS.find(o => o.id === sorted[0][0]);
+                leaderName = leader ? leader.name : sorted[0][0];
+            }
+            document.getElementById('successLeader').textContent = leaderName;
+        }
+
+        // 更新结果预览
+        function updateResultPreview() {
+            const data = getRoomData();
+            if (!data) return;
+            
+            const votes = data.votes || {};
+            const totalVotes = Object.values(votes).length;
+            const sorted = Object.entries(votes).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            const maxVotes = sorted.length > 0 ? sorted[0][1] : 1;
+            
+            const html = sorted.map(([userIdKey, optionId]) => {
+                const option = OPTIONS.find(o => o.id === optionId);
+                const count = Object.values(votes).filter(v => v === optionId).length;
+                const percentage = maxVotes > 0 ? (count / maxVotes * 100) : 0;
+                const isMyChoice = optionId === myVote;
+                
+                return `
+                    <div class="result-bar">
+                        <div class="result-bar-name">${option ? option.name : optionId} ${isMyChoice ? '✓' : ''}</div>
+                        <div class="result-bar-track">
+                            <div class="result-bar-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <div class="result-bar-count">${count}</div>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('resultPreviewBars').innerHTML = html || '<div style="color: #999; font-size: 13px;">暂无投票数据</div>';
+        }
+
+        // 从本地缓存获取房间数据
+        function getRoomData() {
+            const key = `room_cache_${currentRoom}`;
+            const data = localStorage.getItem(key);
+            return data ? JSON.parse(data) : null;
+        }
+
+        // 缓存房间数据
+        function cacheRoomData(data) {
+            const key = `room_cache_${currentRoom}`;
+            localStorage.setItem(key, JSON.stringify(data));
+        }
+
+        // 更新UI
+        async function updateUI() {
+            document.getElementById('roomId').textContent = currentRoom || '----';
+            
+            try {
+                const res = await db.collection('rooms')
+                    .where({ room_id: currentRoom })
+                    .get();
+                
+                const doc = res.data[0];
+                if (!doc) return;
+                
+                const votes = doc.votes || {};
+                
+                // 缓存数据
+                cacheRoomData({ votes });
+                
+                // 计算统计
+                const voterCount = Object.keys(votes).length;
+                const totalVotes = Object.values(votes).length;
+                
+                document.getElementById('voterCount').textContent = `${voterCount} 人参与`;
+                document.getElementById('totalVotes').textContent = `${totalVotes} 票`;
+                
+                // 计算每个选项的票数
+                const voteCounts = {};
+                OPTIONS.forEach(o => voteCounts[o.id] = 0);
+                Object.values(votes).forEach(v => { if (voteCounts[v] !== undefined) voteCounts[v]++; });
+                
+                const maxVotes = Math.max(...Object.values(voteCounts), 0);
+                const container = document.getElementById('optionsContainer');
+                
+                // 首次渲染
+                if (container.children.length === 0) {
+                    container.innerHTML = OPTIONS.map(option => {
+                        const count = voteCounts[option.id];
+                        const pct = totalVotes > 0 ? (count / totalVotes * 100) : 0;
+                        const isSelected = myVote === option.id;
+                        const isWinner = count > 0 && count === maxVotes && maxVotes > 0;
+                        
+                        return `
+                            <div class="option-card initial ${isSelected ? 'selected' : ''} ${isWinner ? 'winner' : ''}"
+                                 data-option-id="${option.id}"
+                                 onclick="selectOption('${option.id}')">
+                                <div class="progress-bar" style="width: ${pct}%"></div>
+                                ${isWinner ? '<div class="winner-badge">🏆 领先</div>' : ''}
+                                <div class="option-main">
+                                    <div class="option-icon" style="background: ${option.color}20;">${option.icon}</div>
+                                    <div class="option-info">
+                                        <div class="option-name">${option.name}</div>
+                                        <div class="option-votes" data-votes-for="${option.id}">${count} 票 · ${pct.toFixed(1)}%</div>
+                                    </div>
+                                    <div class="option-check"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                } else {
+                    // 更新数据
+                    OPTIONS.forEach(option => {
+                        const card = container.querySelector(`[data-option-id="${option.id}"]`);
+                        if (!card) return;
+                        
+                        const count = voteCounts[option.id];
+                        const pct = totalVotes > 0 ? (count / totalVotes * 100) : 0;
+                        const isSelected = myVote === option.id;
+                        const isWinner = count > 0 && count === maxVotes && maxVotes > 0;
+                        
+                        const bar = card.querySelector('.progress-bar');
+                        if (bar) bar.style.width = `${pct}%`;
+                        
+                        const votesText = card.querySelector(`[data-votes-for="${option.id}"]`);
+                        if (votesText) votesText.textContent = `${count} 票 · ${pct.toFixed(1)}%`;
+                        
+                        card.classList.toggle('selected', isSelected);
+                        card.classList.toggle('winner', isWinner);
+                    });
+                }
+                
+                // 同步确认按钮
+                showVotePage();
+                
+            } catch (err) {
+                console.error('获取数据失败:', err);
+            }
+        }
+
+        // 复制房间链接
+        function copyRoomId() {
+            if (!currentRoom) return;
+            
+            const shareUrl = `${window.location.origin}${window.location.pathname}?room=${currentRoom}`;
+            
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(shareUrl).then(() => {
+                    showToast('链接已复制！发给朋友即可邀请投票');
+                });
+            } else {
+                const input = document.createElement('input');
+                input.value = shareUrl;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+                showToast('链接已复制！发给朋友即可邀请投票');
+            }
+        }
+
+        // 显示提示
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        // 启动
+        init();
+    </script>
+</body>
+</html>
